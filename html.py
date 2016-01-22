@@ -53,4 +53,12 @@ def pre(*args, **attributes):
 def p(*args, **attributes):
 	return HTMLNode('p', args, attributes)
 
+def input(*args, **attributes):
+	return HTMLNode('input', args, attributes)
+
+def form(*args, **attributes):
+	return HTMLNode('form', args, attributes)
+
+def text(content):
+	return TextNode(content)
 

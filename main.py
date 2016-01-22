@@ -7,13 +7,22 @@ import difflib
 import urlparse
 import re
 import html
+import collections
+import cgi
+
+def http_handler(path, method):
+	def register_handler(f):
+		print f.__name__
+		return f
+	return register_handler
 
 config = {
 	'issue_regex': '(BUG-\d+)',
 	'issue_url_format': r'/issue/\1',
 }
 
-repo = git.Repo('/home/piotr/projekty/review/test_repo.git')
+# repo = git.Repo('/home/piotr/projekty/review/test_repo.git')
+repo = git.Repo('/home/piotr/projekty/linux/')
 
 def link_issues(text):
 	return re.sub(config['issue_regex'], r'[\1](' + config['issue_url_format'] + ')', text)
@@ -40,59 +49,90 @@ def diff_to_html(diff):
 	return html.li(diff_to_html_head(diff), html.pre(diff.diff))
 
 def get_commit(request, args):
-	[_, commit_id] = args
+	[commit_id] = args
 	commit = repo.commit(commit_id)
-	try:
-		[parent] = commit.parents
-	except ValueError:
-		return 'no parent'
+	parent = commit.parents[0]
 	diff = parent.diff(commit, None, True)
 	return html.p(html.a(commit.hexsha[0:12], href=html.absolute('commit', commit.hexsha)), ' ', commit.summary, html.ul(*map(diff_to_html, diff)))
 
 def get_commits(request, args):
-	[_, ref_name] = args
+	[ref_name] = args
 	ref = repo.refs[ref_name]
-	commit = ref.commit
 	lis = []
-	while commit:
-		try:
-			[parent] = commit.parents
-		except ValueError:
+	for commit in ref.commit.iter_parents():
+		check = html.input(type="checkbox", name=commit.hexsha)
+		link = html.a(commit.hexsha[0:12], href=html.absolute('commit', commit.hexsha))
+		lis.append(html.li(check, ' ', link, ' ', commit.summary))
+		if len(lis) > 100:
 			break
-		diff = parent.diff(commit, None, True)
-		changes = html.ul(*map(lambda c: html.li(diff_to_html_head(c)), diff))
-		lis.append(html.li(html.a(commit.hexsha[0:12], href=html.absolute('commit', commit.hexsha)), ' ', commit.summary, changes))
-		commit = parent
-
-	return html.ul(*lis)
+	create_review = html.input(value='create review', type='submit')
+	return html.form(create_review, html.ul(*lis), method='post', action=html.absolute('review', 'create'))
 
 def get_issues(request, args):
-	return ''
+	return html.text('')
 
 def get_test(request, args):
-	request.wfile.write("\n".join(list(difflib.context_diff(['a','b'], ['a','c']))))
+	return html.text("\n".join(list(difflib.context_diff(['a','b'], ['a','c']))))
+
+def post_review_create(request, args, form):
+	commits = map(lambda x: repo.commit(x.name).count(), form.list)
+	return html.text(str(commits))
+
+class Handler:
+	def __init__(self, do_GET, do_POST, **children):
+		self.do_GET = do_GET
+		self.do_POST = do_POST
+		self.children = children
+	def find(self, path):
+		if path == [] or path[0] not in self.children:
+			return (self, path)
+		else:
+			return self.children[path[0]].find(path[1:])
+
+root_handler = Handler(get_refs, None,
+	commit = Handler(get_commit, None),
+	commits = Handler(get_commits, None),
+	review = Handler(None, None, 
+		create= Handler(None, post_review_create),
+	),
+)
 
 if __name__ == '__main__':
-	handlers = {
-			'': get_refs,
-			'test': get_test,
-			'commit': get_commit,
-			'commits': get_commits,
-			'issues': get_issues,
-		}
-
 	class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-		def do_GET(s):
-			path = s.path.split('/')[1:]
-			command = '' if len(path) == 0 else path[0]
-			if command in handlers:
-				content = handlers[command](s, path)
-				s.send_response(200)
-				s.send_header('Content-Type', 'text/html; charset=UTF-8');
-				s.end_headers()
-				s.wfile.write(content.to_string())
+		def get_path(self):
+			return self.path.split('/')[1:]
+		def serve_html(self, content):
+			self.send_response(200)
+			self.send_header('Content-Type', 'text/html; charset=UTF-8');
+			self.end_headers()
+			self.wfile.write(content.to_string())
+		def serve_not_found(self):
+			self.send_error(404, 'invalid path: {}'.format(self.path))
+		def serve_invalid_method(self, method):
+			self.send_error(405, 'invalid method: {}'.format(method))
+		def do_GET(self):
+			(handler, args) = root_handler.find(self.get_path())
+			if handler:
+				if handler.do_GET:
+					self.serve_html(handler.do_GET(self, args))
+				else:
+					self.serve_invalid_method('GET')
 			else:
-				s.send_error(404, 'invalid path: {}'.format(s.path))
+				self.serve_not_found()
+		def do_POST(self):
+			(handler, args) = root_handler.find(self.get_path())
+			if handler:
+				if handler.do_POST:
+					form = cgi.FieldStorage(
+						fp=self.rfile,
+						headers=self.headers,
+						environ={"REQUEST_METHOD": "POST"}
+					)
+					self.serve_html(handler.do_POST(self, args, form))
+				else:
+					self.serve_invalid_method('POST')
+			else:
+				self.serve_not_found()
 
 	httpd = BaseHTTPServer.HTTPServer(('localhost', 8080), MyHandler)
 	httpd.serve_forever()
