@@ -11,12 +11,6 @@ import collections
 import cgi
 import itertools
 
-def http_handler(path, method):
-	def register_handler(f):
-		print f.__name__
-		return f
-	return register_handler
-
 config = {
 	'issue_regex': '(BUG-\d+)',
 	'issue_url_format': r'/issue/\1',
@@ -40,11 +34,11 @@ def diff_to_html_head(diff):
 	if diff.renamed:
 		return 'Rename: ' + diff.rename_from + ' -> ' + diff.rename_to
 	if diff.new_file:
-		return 'New file: ' + diff.a_blob.name
+		return 'New file: ' + diff.a_blob.path
 	if diff.deleted_file:
-		return 'Delete: ' + diff.b_blob.name
+		return 'Delete: ' + diff.b_blob.path
 	else:
-		return 'Changed: ' + diff.b_blob.name
+		return 'Changed: ' + diff.b_blob.path
 
 def diff_to_html(diff):
 	return html.li(diff_to_html_head(diff), html.pre(diff.diff))
@@ -81,26 +75,42 @@ def compare_commits(left, right):
 	while True:
 		l = ileft.next()
 		r = iright.next()
-		print l,left,r,right
 		if l == right:
 			return -1
 		if r == left:
 			return 1
 
+def diffs_to_affected_paths(diffs):
+	paths = set()
+	for diff in diffs:
+		paths.update(diff_to_affected_paths(diff))
+	return paths
+
+def diff_to_affected_paths(diff):
+	paths = set()
+	if diff.renamed:
+		paths.add(diff.rename_from)
+		paths.add(diff.rename_to)
+	if diff.a_blob:
+		paths.add(diff.a_blob.path)
+	if diff.b_blob:
+		paths.add(diff.b_blob.path)
+	return paths
 
 def get_related_commits(commits):
 	included = sorted(commits, cmp=compare_commits)
 	first = included[-1]
 	last = included[0]
-	related = [last]
-	related.extend(itertools.takewhile(lambda c: c<>first, last.iter_parents()))
-	related.append(first)
+	diffs = first.parents[0].diff(last, None, True)
+	paths = set()
+	for c in included:
+		paths.update(diffs_to_affected_paths(c.diff(c.parents[0])))
 
-	return (included, related)
+	included_diffs = filter(lambda d: not diff_to_affected_paths(d).isdisjoint(paths), diffs)
+	return html.ul(*map(diff_to_html, included_diffs))
 
 def post_review_create(request, args, form):
-	commits = get_related_commits(map(lambda x: repo.commit(x.name), form.list))
-	return html.p(*map(lambda c: html.ul(*map(html.li, map(str, c))), commits))
+	return get_related_commits(map(lambda x: repo.commit(x.name), form.list))
 
 class Handler:
 	def __init__(self, do_GET, do_POST, **children):
