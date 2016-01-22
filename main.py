@@ -9,6 +9,7 @@ import re
 import html
 import collections
 import cgi
+import itertools
 
 def http_handler(path, method):
 	def register_handler(f):
@@ -71,12 +72,35 @@ def get_commits(request, args):
 def get_issues(request, args):
 	return html.text('')
 
-def get_test(request, args):
-	return html.text("\n".join(list(difflib.context_diff(['a','b'], ['a','c']))))
+def compare_commits(left, right):
+	if left == right:
+		return 0 
+	ileft = left.iter_parents()
+	iright = right.iter_parents()
+
+	while True:
+		l = ileft.next()
+		r = iright.next()
+		print l,left,r,right
+		if l == right:
+			return -1
+		if r == left:
+			return 1
+
+
+def get_related_commits(commits):
+	included = sorted(commits, cmp=compare_commits)
+	first = included[-1]
+	last = included[0]
+	related = [last]
+	related.extend(itertools.takewhile(lambda c: c<>first, last.iter_parents()))
+	related.append(first)
+
+	return (included, related)
 
 def post_review_create(request, args, form):
-	commits = map(lambda x: repo.commit(x.name).count(), form.list)
-	return html.text(str(commits))
+	commits = get_related_commits(map(lambda x: repo.commit(x.name), form.list))
+	return html.p(*map(lambda c: html.ul(*map(html.li, map(str, c))), commits))
 
 class Handler:
 	def __init__(self, do_GET, do_POST, **children):
