@@ -1,4 +1,5 @@
 *.pyc
 test_repo
 test_repo.git
+objects
 

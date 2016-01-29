@@ -10,17 +10,10 @@ import html
 import collections
 import cgi
 import itertools
+import filedb
 
-config = {
-	'issue_regex': '(BUG-\d+)',
-	'issue_url_format': r'/issue/\1',
-}
-
-# repo = git.Repo('/home/piotr/projekty/review/test_repo.git')
-repo = git.Repo('/home/piotr/projekty/linux/')
-
-def link_issues(text):
-	return re.sub(config['issue_regex'], r'[\1](' + config['issue_url_format'] + ')', text)
+repo = git.Repo('/home/piotr/projekty/linux')
+db = filedb.FileDb('objects')
 
 def get_refs(request, args):
 	def get_ref(ref):
@@ -72,14 +65,17 @@ def compare_commits(left, right):
 	ileft = left.iter_parents()
 	iright = right.iter_parents()
 
-	while True:
-		l = ileft.next()
-		r = iright.next()
-		if l == right:
-			return -1
-		if r == left:
-			return 1
-
+	try:
+		while True:
+			l = ileft.next()
+			r = iright.next()
+			if l == right:
+				return -1
+			if r == left:
+				return 1
+	except StopIteration:
+		return 0
+		
 def diffs_to_affected_paths(diffs):
 	paths = set()
 	for diff in diffs:
@@ -97,20 +93,41 @@ def diff_to_affected_paths(diff):
 		paths.add(diff.b_blob.path)
 	return paths
 
-def get_related_commits(commits):
+def get_reviews(request, args):
+	def review_to_html(r):
+		hexsha, review = r
+		return html.li(str(review))	
+	return html.ul(*map(review_to_html, db.iterate('open_reviews')))
+
+
+def get_review(request, args):
+	[hexsha] = args
+	review = db.get('open_reviews', hexsha)
+	base = repo.commit(review['baseCommit'])
+	last = repo.commit(review['lastCommit'])
+	affectedPaths = set(review['affectedPaths'])
+	
+	diff = base.diff(last, None, True)
+	filtered_diff = filter(lambda d: not diff_to_affected_paths(d).isdisjoint(affectedPaths), diff)
+	return html.ul(*map(diff_to_html, filtered_diff))
+
+def post_review_create(request, args, form):
+	commits = map(lambda x: repo.commit(x.name), form.list)
 	included = sorted(commits, cmp=compare_commits)
 	first = included[-1]
 	last = included[0]
-	diffs = first.parents[0].diff(last, None, True)
+	diffs = first.parents[0].diff(last)
 	paths = set()
 	for c in included:
 		paths.update(diffs_to_affected_paths(c.diff(c.parents[0])))
 
-	included_diffs = filter(lambda d: not diff_to_affected_paths(d).isdisjoint(paths), diffs)
-	return html.ul(*map(diff_to_html, included_diffs))
-
-def post_review_create(request, args, form):
-	return get_related_commits(map(lambda x: repo.commit(x.name), form.list))
+	review = {
+		'baseCommit': first.parents[0].hexsha,
+		'lastCommit': last.hexsha,
+		'affectedPaths': list(paths),
+		'includedCommits': list(map(lambda c: c.hexsha, included)),
+	}
+	return ['review', db.add('open_reviews', review)]
 
 class Handler:
 	def __init__(self, do_GET, do_POST, **children):
@@ -126,9 +143,10 @@ class Handler:
 root_handler = Handler(get_refs, None,
 	commit = Handler(get_commit, None),
 	commits = Handler(get_commits, None),
-	review = Handler(None, None, 
+	review = Handler(get_review, None, 
 		create= Handler(None, post_review_create),
 	),
+	reviews = Handler(get_reviews, None), 
 )
 
 if __name__ == '__main__':
@@ -140,6 +158,10 @@ if __name__ == '__main__':
 			self.send_header('Content-Type', 'text/html; charset=UTF-8');
 			self.end_headers()
 			self.wfile.write(content.to_string())
+		def serve_found(self, new_location):
+			self.send_response(302, 'created')
+			self.send_header('Location', new_location);
+			self.end_headers()
 		def serve_not_found(self):
 			self.send_error(404, 'invalid path: {}'.format(self.path))
 		def serve_invalid_method(self, method):
@@ -162,7 +184,7 @@ if __name__ == '__main__':
 						headers=self.headers,
 						environ={"REQUEST_METHOD": "POST"}
 					)
-					self.serve_html(handler.do_POST(self, args, form))
+					self.serve_found(html.absolute(*handler.do_POST(self, args, form)))
 				else:
 					self.serve_invalid_method('POST')
 			else:
