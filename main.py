@@ -9,9 +9,24 @@ import collections
 import itertools
 import filedb
 import http
+import static
 
 repo = git.Repo('/home/piotr/projekty/linux')
 db = filedb.FileDb('objects')
+
+def html_page(title, *content):
+	head = html.head(
+		html.link(rel="shortcut icon", href=static.favicon),
+		html.title("{} - {}".format(title, static.title)),
+		html.style(static.style),
+	)
+	nav = html.nav(html.ul(
+		html.li(html.a('⏏', href=html.absolute())),
+		html.li(html.a('Reviews', href=html.absolute('reviews'))),
+		html.li(html.a('Master', href=html.absolute('commits', 'origin', 'master'))),
+		html.li(html.a('Refs', href=html.absolute('refs'))),
+	))
+	return html.html(head, nav, html.body(*content))
 
 def get_refs(request, args):
 	def get_ref(ref):
@@ -19,7 +34,7 @@ def get_refs(request, args):
 		issues = html.a('issues', href=html.absolute('issues', ref.name))
 		return html.li(ref.name, ' ', commits, ' ', issues)
 		
-	return html.ul(*map(get_ref, repo.refs))
+	return html_page('Refs', html.ul(*map(get_ref, repo.refs)))
 
 def diff_to_html_head(diff):
 	if diff.renamed:
@@ -39,20 +54,25 @@ def get_commit(request, args):
 	commit = repo.commit(commit_id)
 	parent = commit.parents[0]
 	diff = parent.diff(commit, None, True)
-	return html.p(html.a(commit.hexsha[0:12], href=html.absolute('commit', commit.hexsha)), ' ', commit.summary, html.ul(*map(diff_to_html, diff)))
+	body = html.p(html.a(commit.hexsha[0:12], href=html.absolute('commit', commit.hexsha)),	' ', commit.summary, html.ul(*map(diff_to_html, diff)))
+	return html_page('Commit {}'.format(commit.hexsha[0:12]), body)
+
+def commit_to_html(commit):
+	link = html.a(commit.hexsha[0:12], href=html.absolute('commit', commit.hexsha))
+	return link, ' ', commit.summary
 
 def get_commits(request, args):
-	[ref_name] = args
+	ref_name = '/'.join(args)
 	ref = repo.refs[ref_name]
 	lis = []
 	for commit in ref.commit.iter_parents():
 		check = html.input(type="checkbox", name=commit.hexsha)
-		link = html.a(commit.hexsha[0:12], href=html.absolute('commit', commit.hexsha))
-		lis.append(html.li(check, ' ', link, ' ', commit.summary))
+		lis.append(html.li(check, ' ', *commit_to_html(commit)))
 		if len(lis) > 100:
 			break
 	create_review = html.input(value='create review', type='submit')
-	return html.form(create_review, html.ul(*lis), method='post', action=html.absolute('review', 'create'))
+	body = html.form(create_review, html.ul(*lis), method='post', action=html.absolute('review', 'create'))
+	return html_page('Commits {}'.format(ref_name), body)
 
 def get_issues(request, args):
 	return html.text('')
@@ -94,9 +114,9 @@ def diff_to_affected_paths(diff):
 def get_reviews(request, args):
 	def review_to_html(r):
 		hexsha, review = r
-		return html.li(str(review))	
-	return html.ul(*map(review_to_html, db.iterate('open_reviews')))
-
+		commits = html.ul(*map(lambda c: html.li(*commit_to_html(repo.commit(c))), review['includedCommits']))
+		return html.li(html.a(hexsha[0:12], href=html.absolute('review', hexsha)), commits)
+	return html_page('Reviews', html.ul(*map(review_to_html, db.iterate('open_reviews'))))
 
 def get_review(request, args):
 	[hexsha] = args
@@ -107,7 +127,7 @@ def get_review(request, args):
 	
 	diff = base.diff(last, None, True)
 	filtered_diff = filter(lambda d: not diff_to_affected_paths(d).isdisjoint(affectedPaths), diff)
-	return html.ul(*map(diff_to_html, filtered_diff))
+	return html_page('Review {}'.format(hexsha[0:12]), html.ul(*map(diff_to_html, filtered_diff)))
 
 def post_review_create(request, args, form):
 	commits = map(lambda x: repo.commit(x.name), form.list)
@@ -128,7 +148,8 @@ def post_review_create(request, args, form):
 	return ['review', db.add('open_reviews', review)]
 
 if __name__ == '__main__':
-	http.serve(('localhost', 8080), http.Handler(get_refs, None,
+	http.serve(('localhost', 8080), http.Handler(get_reviews, None,
+		refs = http.Handler(get_refs, None),
 		commit = http.Handler(get_commit, None),
 		commits = http.Handler(get_commits, None),
 		review = http.Handler(get_review, None, 

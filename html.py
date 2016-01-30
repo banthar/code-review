@@ -6,6 +6,12 @@ import cgi
 def htmlescape(text):
 	return cgi.escape(text, quote=True)
 
+class RawNode:
+	def __init__(self, content):
+		self.content = content
+	def to_string(self):
+		return self.content
+
 class TextNode:
 	def __init__(self, content):
 		self.content = content
@@ -18,7 +24,7 @@ class HTMLNode:
 			if isinstance(node, str):
 				return TextNode(node)
 			if isinstance(node, unicode):
-				return TextNode(node.decode('utf-8'))
+				return TextNode(node.encode('utf-8'))
 			else:
 				return node
 
@@ -43,11 +49,14 @@ def absolute(*elements):
 def a(*args, **attributes):
 	return HTMLNode('a', args, attributes)
 
-def li(*args, **attributes):
-	return HTMLNode('li', args, attributes)
-
 def ul(*args, **attributes):
 	return HTMLNode('ul', args, attributes)
+
+def nav(*args, **attributes):
+	return HTMLNode('nav', args, attributes)
+
+def li(*args, **attributes):
+	return HTMLNode('li', args, attributes)
 
 def pre(*args, **attributes):
 	return HTMLNode('pre', args, attributes)
@@ -60,6 +69,24 @@ def input(*args, **attributes):
 
 def form(*args, **attributes):
 	return HTMLNode('form', args, attributes)
+
+def html(*args, **attributes):
+	return HTMLNode('html', args, attributes)
+
+def head(*args, **attributes):
+	return HTMLNode('head', args, attributes)
+
+def body(*args, **attributes):
+	return HTMLNode('body', args, attributes)
+
+def title(*args, **attributes):
+	return HTMLNode('title', args, attributes)
+
+def link(*args, **attributes):
+	return HTMLNode('link', args, attributes)
+
+def style(content):
+	return  HTMLNode('style', [RawNode(content)], {})
 
 def text(content):
 	return TextNode(content)
