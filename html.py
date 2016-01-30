@@ -44,7 +44,11 @@ class HTMLNode:
 			return '<'+self.kind+attributeText+'/>'
 
 def absolute(*elements):
-	return '/'+'/'.join(elements)
+	return '/'+relative(*elements)
+
+def relative(*elements):
+	return '/'.join(elements)
+
 
 def a(*args, **attributes):
 	return HTMLNode('a', args, attributes)
@@ -102,6 +106,9 @@ def td(*args, **attributes):
 
 def th(*args, **attributes):
 	return HTMLNode('th', args, attributes)
+
+def hr(*args, **attributes):
+	return HTMLNode('hr', args, attributes)
 
 def style(content):
 	return  HTMLNode('style', [RawNode(content)], {})

@@ -46,6 +46,7 @@ body div {
 
 table {
 	border-collapse: collapse;
+	width: 100%;
 }
 
 td {
@@ -53,11 +54,11 @@ td {
 }
 
 tr:nth-child(even) {
-	background: #eee;
+	background: #f8f8f8;
 }
 
 tr:nth-child(odd) {
-	background: #fff;
+	background: #eeeeee;
 }
 
 tr:hover {
@@ -69,6 +70,12 @@ input {
 	padding: 0.25em;
 	border: 1px solid;
 	border-radius: 2px;
+}
+
+hr {
+  margin: 0.25em;
+	border: none;
+  border-top: 1px solid black;
 }
 
 """

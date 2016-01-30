@@ -11,7 +11,7 @@ import filedb
 import http
 import static
 
-repo = git.Repo('/home/piotr/projekty/linux')
+repo = git.Repo('/home/piotr/projekty/linux.git')
 db = filedb.FileDb('objects')
 
 def html_page(title, *content):
@@ -23,7 +23,8 @@ def html_page(title, *content):
 	nav = html.nav(html.ul(
 		html.li(html.a('⏏', href=html.absolute())),
 		html.li(html.a('Reviews', href=html.absolute('reviews'))),
-		html.li(html.a('Master', href=html.absolute('commits', 'origin', 'master'))),
+		html.li(html.a('Commits', href=html.absolute('commits', repo.head.ref.name))),
+		html.li(html.a('Tree', href=html.absolute('tree', repo.head.ref.name))),
 		html.li(html.a('Refs', href=html.absolute('refs'))),
 	))
 	return html.html(head, html.body(nav, *content))
@@ -31,7 +32,8 @@ def html_page(title, *content):
 def get_refs(request, args):
 	def get_ref(ref):
 		commits = html.a('commits', href=html.absolute('commits', ref.name))
-		return html.tr(html.td(ref.name), html.td(commits))
+		tree = html.a('tree', href=html.absolute('tree', ref.name))
+		return html.tr(html.td(ref.name), html.td(commits), html.td(tree))
 		
 	return html_page('Refs', html.div(html.table(*map(get_ref, repo.refs))))
 
@@ -71,7 +73,7 @@ def get_commits(request, args):
 			break
 	create_review = html.input(value='Create Review', type='submit')
 	reset = html.input(value='Reset', type='reset')
-	body = html.form(create_review, reset, html.table(*rows), method='post', action=html.absolute('review', 'create'))
+	body = html.form(create_review, reset, html.hr(), html.table(*rows), method='post', action=html.absolute('review', 'create'))
 	return html_page('Commits {}'.format(ref_name), html.div(body))
 
 def compare_commits(left, right):
@@ -144,14 +146,42 @@ def post_review_create(request, args, form):
 	}
 	return html.absolute('review', db.add('open_reviews', review))
 
+def bytes_to_human(n):
+	return str(n)+' B'
+
+def get_tree(request, args):
+	ref_name = args[0]
+	path = args[1:]
+	ref = repo.refs[ref_name]
+	rows = []
+	tree = ref.commit.tree
+	for p in path:
+		tree = tree[p]
+	if isinstance(tree, git.Blob):
+		body = html.pre(tree.data_stream.read())
+	else:
+		if len(args)>1:
+			rows.append(html.tr(html.td(html.a('..', href='/'+'/'.join(['tree']+args[:1]))), html.td()))
+		for d in tree.trees:
+			link = html.td(html.a(d.name+'/', href='/'+'/'.join(['tree']+args+[d.name])))
+			rows.append(html.tr(link, html.td()))
+		for blob in tree.blobs:
+			link = html.td(html.a(blob.name, href='/'+'/'.join(['tree']+args+[blob.name])))
+			size = html.td(bytes_to_human(blob.size))
+			rows.append(html.tr(link, size))
+		body = html.table(*rows)
+	return html_page('Tree {} /{}'.format(ref_name, '/'.join(path)), html.div(body))
+
+
 if __name__ == '__main__':
 	http.serve(('localhost', 8080), http.Handler(get_reviews, None,
-		refs = http.Handler(get_refs, None),
-		commit = http.Handler(get_commit, None),
-		commits = http.Handler(get_commits, None),
 		review = http.Handler(get_review, None, 
 			create= http.Handler(None, post_review_create),
 		),
 		reviews = http.Handler(get_reviews, None), 
+		commit = http.Handler(get_commit, None),
+		commits = http.Handler(get_commits, None),
+		tree = http.Handler(get_tree, None),
+		refs = http.Handler(get_refs, None),
 	))
 
