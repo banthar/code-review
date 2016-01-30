@@ -31,10 +31,9 @@ def html_page(title, *content):
 def get_refs(request, args):
 	def get_ref(ref):
 		commits = html.a('commits', href=html.absolute('commits', ref.name))
-		issues = html.a('issues', href=html.absolute('issues', ref.name))
-		return html.li(ref.name, ' ', commits, ' ', issues)
+		return html.tr(html.td(ref.name), html.td(commits))
 		
-	return html_page('Refs', html.ul(*map(get_ref, repo.refs)))
+	return html_page('Refs', html.div(html.table(*map(get_ref, repo.refs))))
 
 def diff_to_html_head(diff):
 	if diff.renamed:
@@ -47,7 +46,7 @@ def diff_to_html_head(diff):
 		return 'Changed: ' + diff.b_blob.path
 
 def diff_to_html(diff):
-	return html.li(diff_to_html_head(diff), html.pre(diff.diff))
+	return html.div(diff_to_html_head(diff), html.pre(diff.diff))
 
 def get_commit(request, args):
 	[commit_id] = args
@@ -64,19 +63,16 @@ def commit_to_html(commit):
 def get_commits(request, args):
 	ref_name = '/'.join(args)
 	ref = repo.refs[ref_name]
-	lis = []
+	rows = []
 	for commit in ref.commit.iter_parents():
 		check = html.input(type="checkbox", name=commit.hexsha)
-		lis.append(html.li(check, ' ', *commit_to_html(commit)))
-		if len(lis) > 100:
+		rows.append(html.tr(html.td(check), html.td(*commit_to_html(commit))))
+		if len(rows) > 256:
 			break
 	create_review = html.input(value='Create Review', type='submit')
 	reset = html.input(value='Reset', type='reset')
-	body = html.form(create_review, reset, html.ul(*lis), method='post', action=html.absolute('review', 'create'))
-	return html_page('Commits {}'.format(ref_name), body)
-
-def get_issues(request, args):
-	return html.text('')
+	body = html.form(create_review, reset, html.table(*rows), method='post', action=html.absolute('review', 'create'))
+	return html_page('Commits {}'.format(ref_name), html.div(body))
 
 def compare_commits(left, right):
 	if left == right:
@@ -116,8 +112,8 @@ def get_reviews(request, args):
 	def review_to_html(r):
 		hexsha, review = r
 		commits = html.ul(*map(lambda c: html.li(*commit_to_html(repo.commit(c))), review['includedCommits']))
-		return html.li(html.h1(html.a(hexsha[0:12], href=html.absolute('review', hexsha))), commits, **{'class': 'review'})
-	return html_page('Reviews', html.ul(*map(review_to_html, db.iterate('open_reviews')), id='blockList'))
+		return html.div(html.h1(html.a(hexsha[0:12], href=html.absolute('review', hexsha))), commits, **{'class': 'review'})
+	return html_page('Reviews', *map(review_to_html, db.iterate('open_reviews')))
 
 def get_review(request, args):
 	[hexsha] = args
@@ -128,7 +124,7 @@ def get_review(request, args):
 	
 	diff = base.diff(last, None, True)
 	filtered_diff = filter(lambda d: not diff_to_affected_paths(d).isdisjoint(affectedPaths), diff)
-	return html_page('Review {}'.format(hexsha[0:12]), html.ul(*map(diff_to_html, filtered_diff)))
+	return html_page('Review {}'.format(hexsha[0:12]), *map(diff_to_html, filtered_diff))
 
 def post_review_create(request, args, form):
 	commits = map(lambda x: repo.commit(x.name), form.list)

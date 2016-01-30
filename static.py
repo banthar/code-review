@@ -37,11 +37,38 @@ body {
   background-color: #eee;
 }
 
-#blockList > li {
+body div {
   background-color: #fff;
 	padding: 1.0em;
 	margin: 1.0em;
 	font-family: monospace;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+td {
+  padding: 0.25em;
+}
+
+tr:nth-child(even) {
+	background: #eee;
+}
+
+tr:nth-child(odd) {
+	background: #fff;
+}
+
+tr:hover {
+	background: #ddd;
+}
+
+input {
+	margin: 0.25em;
+	padding: 0.25em;
+	border: 1px solid;
+	border-radius: 2px;
 }
 
 """

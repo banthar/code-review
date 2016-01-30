@@ -91,6 +91,18 @@ def title(*args, **attributes):
 def link(*args, **attributes):
 	return HTMLNode('link', args, attributes)
 
+def table(*args, **attributes):
+	return HTMLNode('table', args, attributes)
+
+def tr(*args, **attributes):
+	return HTMLNode('tr', args, attributes)
+
+def td(*args, **attributes):
+	return HTMLNode('td', args, attributes)
+
+def th(*args, **attributes):
+	return HTMLNode('th', args, attributes)
+
 def style(content):
 	return  HTMLNode('style', [RawNode(content)], {})
 
