@@ -7,3 +7,6 @@ favicon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAQAAADZc7J/AAA
 
 with open('style.css','rb') as f:
 	style = f.read()
+
+with open('script.js','rb') as f:
+	script = f.read()

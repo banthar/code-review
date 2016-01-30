@@ -90,7 +90,16 @@ hr {
 	font-weight: bold;
 }
 
-.diff tr:hover {
+.commentable:hover {
 	background-color: #cdf;
 }
 
+.comment {
+	white-space: pre-wrap;
+	width: 500px;
+	border: 1px solid black;
+	padding: 0.5em;
+	margin: 0.5em;
+	border-radius: 2px;
+	box-shadow: 4px 4px 10px #888888;
+}

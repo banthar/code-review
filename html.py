@@ -113,6 +113,10 @@ def hr(*args, **attributes):
 def style(content):
 	return  HTMLNode('style', [RawNode(content)], {})
 
+def script(content):
+	return HTMLNode('script', [RawNode(content)], {})
+
+
 def text(content):
 	return TextNode(content)
 

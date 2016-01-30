@@ -27,7 +27,7 @@ def html_page(title, *content):
 		html.li(html.a('Tree', href=html.absolute('tree', repo.head.ref.name))),
 		html.li(html.a('Refs', href=html.absolute('refs'))),
 	))
-	return html.html(head, html.body(nav, *content))
+	return html.html(head, html.body(*((nav,)+content+(html.script(static.script),))))
 
 def get_refs(request, args):
 	def get_ref(ref):
@@ -42,13 +42,13 @@ def diff_to_html(diff):
 		if len(line) == 0:
 			type = ''
 		elif line[0] == '+':
-			type = 'added'
+			type = 'commentable added'
 		elif line[0] == '-':
-			type = 'removed'
+			type = 'commentable removed'
 		elif line[0] == '@':
 			type = 'header'
 		else:
-			type = ''
+			type = 'commentable'
 		return html.tr(html.td(), html.td(line), **{'class': type})
 	lines = map(diff_lin_to_html , diff.diff.split('\n'))
 	return html.div(html.table(*lines, **{'class': 'diff'}))
@@ -176,6 +176,13 @@ def get_tree(request, args):
 		body = html.table(*rows, **{'class': 'list'})
 	return html_page('Tree {} /{}'.format(ref_name, '/'.join(path)), html.div(body))
 
+def get_comment(request, args):
+	[hexsha] = args
+	return html.text(db.get('comments', hexsha)['message'].encode('utf-8'))
+
+def post_comment_create(request, args, form):
+	print args, form
+	return html.absolute('comment', db.add('comments', {'message': form['message'].value}))
 
 if __name__ == '__main__':
 	http.serve(('localhost', 8080), http.Handler(get_reviews, None,
@@ -185,6 +192,9 @@ if __name__ == '__main__':
 		reviews = http.Handler(get_reviews, None), 
 		commit = http.Handler(get_commit, None),
 		commits = http.Handler(get_commits, None),
+		comment = http.Handler(get_comment, None,
+			create= http.Handler(None, post_comment_create),
+		),
 		tree = http.Handler(get_tree, None),
 		refs = http.Handler(get_refs, None),
 	))

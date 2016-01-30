@@ -4,6 +4,7 @@
 import BaseHTTPServer
 import urlparse
 import cgi
+import json
 
 class Handler:
 	def __init__(self, do_GET, do_POST, **children):
@@ -46,11 +47,15 @@ def serve(address, root_handler):
 			(handler, args) = root_handler.find(self.get_path())
 			if handler:
 				if handler.do_POST:
-					form = cgi.FieldStorage(
-						fp=self.rfile,
-						headers=self.headers,
-						environ={"REQUEST_METHOD": "POST"}
-					)
+					content_type = self.headers['Content-Type']
+					if content_type == 'application/x-www-form-urlencoded':
+						form = cgi.FieldStorage(
+							fp=self.rfile,
+							headers=self.headers,
+							environ={"REQUEST_METHOD": "POST"}
+						)
+					else:
+						raise Exception("Unsupported content type: "+content_type)
 					self.serve_found(handler.do_POST(self, args, form))
 				else:
 					self.serve_invalid_method('POST')
