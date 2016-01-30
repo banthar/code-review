@@ -51,7 +51,7 @@ def serve(address, root_handler):
 						headers=self.headers,
 						environ={"REQUEST_METHOD": "POST"}
 					)
-					self.serve_found(html.absolute(*handler.do_POST(self, args, form)))
+					self.serve_found(handler.do_POST(self, args, form))
 				else:
 					self.serve_invalid_method('POST')
 			else:

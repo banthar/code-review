@@ -26,7 +26,7 @@ def html_page(title, *content):
 		html.li(html.a('Master', href=html.absolute('commits', 'origin', 'master'))),
 		html.li(html.a('Refs', href=html.absolute('refs'))),
 	))
-	return html.html(head, nav, html.body(*content))
+	return html.html(head, html.body(nav, *content))
 
 def get_refs(request, args):
 	def get_ref(ref):
@@ -70,8 +70,9 @@ def get_commits(request, args):
 		lis.append(html.li(check, ' ', *commit_to_html(commit)))
 		if len(lis) > 100:
 			break
-	create_review = html.input(value='create review', type='submit')
-	body = html.form(create_review, html.ul(*lis), method='post', action=html.absolute('review', 'create'))
+	create_review = html.input(value='Create Review', type='submit')
+	reset = html.input(value='Reset', type='reset')
+	body = html.form(create_review, reset, html.ul(*lis), method='post', action=html.absolute('review', 'create'))
 	return html_page('Commits {}'.format(ref_name), body)
 
 def get_issues(request, args):
@@ -115,8 +116,8 @@ def get_reviews(request, args):
 	def review_to_html(r):
 		hexsha, review = r
 		commits = html.ul(*map(lambda c: html.li(*commit_to_html(repo.commit(c))), review['includedCommits']))
-		return html.li(html.a(hexsha[0:12], href=html.absolute('review', hexsha)), commits)
-	return html_page('Reviews', html.ul(*map(review_to_html, db.iterate('open_reviews'))))
+		return html.li(html.h1(html.a(hexsha[0:12], href=html.absolute('review', hexsha))), commits, **{'class': 'review'})
+	return html_page('Reviews', html.ul(*map(review_to_html, db.iterate('open_reviews')), id='blockList'))
 
 def get_review(request, args):
 	[hexsha] = args
@@ -145,7 +146,7 @@ def post_review_create(request, args, form):
 		'affectedPaths': list(paths),
 		'includedCommits': list(map(lambda c: c.hexsha, included)),
 	}
-	return ['review', db.add('open_reviews', review)]
+	return html.absolute('review', db.add('open_reviews', review))
 
 if __name__ == '__main__':
 	http.serve(('localhost', 8080), http.Handler(get_reviews, None,

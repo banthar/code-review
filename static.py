@@ -7,9 +7,9 @@ favicon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAQAAADZc7J/AAA
 
 style = """
 * {
-  margin: 0;
   padding: 0;
-	font-family: sans-serif;
+  margin: 0;
+  list-style-type: none;
 }
 
 nav {
@@ -19,7 +19,6 @@ nav {
 
 nav ul li {
   display: inline-block;
-  list-style-type: none;
 	padding: 0.5em 0.75em;
 }
 
@@ -27,10 +26,22 @@ nav > ul > li > a {
   color: #aaa;
   text-decoration: none;
 	font-size: 15px;
+	font-family: sans-serif;
 }
 
 nav li:hover {
   background-color: #666;
+}
+
+body {
+  background-color: #eee;
+}
+
+#blockList > li {
+  background-color: #fff;
+	padding: 1.0em;
+	margin: 1.0em;
+	font-family: monospace;
 }
 
 """

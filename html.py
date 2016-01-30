@@ -49,6 +49,9 @@ def absolute(*elements):
 def a(*args, **attributes):
 	return HTMLNode('a', args, attributes)
 
+def h1(*args, **attributes):
+	return HTMLNode('h1', args, attributes)
+
 def ul(*args, **attributes):
 	return HTMLNode('ul', args, attributes)
 
@@ -63,6 +66,9 @@ def pre(*args, **attributes):
 
 def p(*args, **attributes):
 	return HTMLNode('p', args, attributes)
+
+def div(*args, **attributes):
+	return HTMLNode('div', args, attributes)
 
 def input(*args, **attributes):
 	return HTMLNode('input', args, attributes)
