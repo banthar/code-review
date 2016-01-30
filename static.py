@@ -37,11 +37,12 @@ body {
   background-color: #eee;
 }
 
-body div {
+body > div {
   background-color: #fff;
 	padding: 1.0em;
 	margin: 1.0em;
 	font-family: monospace;
+	box-shadow: 2px 2px 10px #888888;
 }
 
 table {
@@ -76,6 +77,24 @@ hr {
   margin: 0.25em;
 	border: none;
   border-top: 1px solid black;
+}
+
+.diff div {
+	margin: 0px;
+	padding: 0px;
+  white-space: pre;
+}
+
+.diff .added {
+	background-color: #cfd;
+}
+
+.diff .removed {
+	background-color: #fdc;
+}
+
+.diff .header {
+	font-weight: bold;
 }
 
 """

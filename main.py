@@ -37,18 +37,21 @@ def get_refs(request, args):
 		
 	return html_page('Refs', html.div(html.table(*map(get_ref, repo.refs))))
 
-def diff_to_html_head(diff):
-	if diff.renamed:
-		return 'Rename: ' + diff.rename_from + ' -> ' + diff.rename_to
-	if diff.new_file:
-		return 'New file: ' + diff.a_blob.path
-	if diff.deleted_file:
-		return 'Delete: ' + diff.b_blob.path
-	else:
-		return 'Changed: ' + diff.b_blob.path
-
 def diff_to_html(diff):
-	return html.div(diff_to_html_head(diff), html.pre(diff.diff))
+	def diff_lin_to_html(line):
+		if len(line) == 0:
+			type = ''
+		elif line[0] == '+':
+			type = 'added'
+		elif line[0] == '-':
+			type = 'removed'
+		elif line[0] == '@':
+			type = 'header'
+		else:
+			type = ''
+		return html.div(line, **{'class': type})
+	lines = map(diff_lin_to_html , diff.diff.split('\n'))
+	return html.div(*lines, **{'class': 'diff'})
 
 def get_commit(request, args):
 	[commit_id] = args
