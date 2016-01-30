@@ -50,19 +50,19 @@ table {
 	width: 100%;
 }
 
-td {
+.list td {
   padding: 0.25em;
 }
 
-tr:nth-child(even) {
+.list tr:nth-child(even) {
 	background: #f8f8f8;
 }
 
-tr:nth-child(odd) {
+.list tr:nth-child(odd) {
 	background: #eeeeee;
 }
 
-tr:hover {
+.list	tr:hover {
 	background: #ddd;
 }
 
@@ -79,7 +79,7 @@ hr {
   border-top: 1px solid black;
 }
 
-.diff div {
+.diff {
 	margin: 0px;
 	padding: 0px;
   white-space: pre;
@@ -95,6 +95,10 @@ hr {
 
 .diff .header {
 	font-weight: bold;
+}
+
+.diff tr:hover {
+	background-color: #cdf;
 }
 
 """

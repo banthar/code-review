@@ -35,7 +35,7 @@ def get_refs(request, args):
 		tree = html.a('tree', href=html.absolute('tree', ref.name))
 		return html.tr(html.td(ref.name), html.td(commits), html.td(tree))
 		
-	return html_page('Refs', html.div(html.table(*map(get_ref, repo.refs))))
+	return html_page('Refs', html.div(html.table(*map(get_ref, repo.refs), **{'class': 'list'})))
 
 def diff_to_html(diff):
 	def diff_lin_to_html(line):
@@ -49,17 +49,18 @@ def diff_to_html(diff):
 			type = 'header'
 		else:
 			type = ''
-		return html.div(line, **{'class': type})
+		return html.tr(html.td(), html.td(line), **{'class': type})
 	lines = map(diff_lin_to_html , diff.diff.split('\n'))
-	return html.div(*lines, **{'class': 'diff'})
+	return html.div(html.table(*lines, **{'class': 'diff'}))
 
 def get_commit(request, args):
 	[commit_id] = args
 	commit = repo.commit(commit_id)
 	parent = commit.parents[0]
 	diff = parent.diff(commit, None, True)
-	body = html.p(html.a(commit.hexsha[0:12], href=html.absolute('commit', commit.hexsha)),	' ', commit.summary, html.ul(*map(diff_to_html, diff)))
-	return html_page('Commit {}'.format(commit.hexsha[0:12]), body)
+	header = html.div(html.a(commit.hexsha[0:12], href=html.absolute('commit', commit.hexsha)),	' ', commit.summary)
+	diffs = map(diff_to_html, diff)
+	return html_page('Commit {}'.format(commit.hexsha[0:12]), header, *diffs)
 
 def commit_to_html(commit):
 	link = html.a(commit.hexsha[0:12], href=html.absolute('commit', commit.hexsha))
@@ -76,7 +77,7 @@ def get_commits(request, args):
 			break
 	create_review = html.input(value='Create Review', type='submit')
 	reset = html.input(value='Reset', type='reset')
-	body = html.form(create_review, reset, html.hr(), html.table(*rows), method='post', action=html.absolute('review', 'create'))
+	body = html.form(create_review, reset, html.hr(), html.table(*rows, **{'class': 'list'}), method='post', action=html.absolute('review', 'create'))
 	return html_page('Commits {}'.format(ref_name), html.div(body))
 
 def compare_commits(left, right):
@@ -172,7 +173,7 @@ def get_tree(request, args):
 			link = html.td(html.a(blob.name, href='/'+'/'.join(['tree']+args+[blob.name])))
 			size = html.td(bytes_to_human(blob.size))
 			rows.append(html.tr(link, size))
-		body = html.table(*rows)
+		body = html.table(*rows, **{'class': 'list'})
 	return html_page('Tree {} /{}'.format(ref_name, '/'.join(path)), html.div(body))
 
 
