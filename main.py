@@ -27,7 +27,7 @@ def html_page(title, *content):
 		html.li(html.a('Tree', href=html.absolute('tree', repo.head.ref.name))),
 		html.li(html.a('Refs', href=html.absolute('refs'))),
 	))
-	return html.html(head, html.body(*((nav,)+content+(html.script(static.script),))))
+	return http.Html(html.html(head, html.body(*((nav,)+content+(html.script(static.script),)))))
 
 def get_refs(request, args):
 	def get_ref(ref):
@@ -68,13 +68,10 @@ def commit_to_html(commit):
 
 def get_commits(request, args):
 	ref_name = '/'.join(args)
-	ref = repo.refs[ref_name]
 	rows = []
-	for commit in ref.commit.iter_parents():
+	for commit in repo.iter_commits(ref_name, max_count=256):
 		check = html.input(type="checkbox", name=commit.hexsha)
 		rows.append(html.tr(html.td(check), html.td(*commit_to_html(commit))))
-		if len(rows) > 256:
-			break
 	create_review = html.input(value='Create Review', type='submit')
 	reset = html.input(value='Reset', type='reset')
 	body = html.form(create_review, reset, html.hr(), html.table(*rows, **{'class': 'list'}), method='post', action=html.absolute('review', 'create'))
@@ -114,23 +111,37 @@ def diff_to_affected_paths(diff):
 		paths.add(diff.b_blob.path)
 	return paths
 
+def review_to_html_summary(r):
+	hexsha, review = r
+	commits = html.ul(*map(lambda c: html.li(*commit_to_html(repo.commit(c))), review['includedCommits']))
+	return html.div(html.h1(html.a(hexsha[0:12], href=html.absolute('review', hexsha))), commits, **{'class': 'review'})
+
 def get_reviews(request, args):
-	def review_to_html(r):
-		hexsha, review = r
-		commits = html.ul(*map(lambda c: html.li(*commit_to_html(repo.commit(c))), review['includedCommits']))
-		return html.div(html.h1(html.a(hexsha[0:12], href=html.absolute('review', hexsha))), commits, **{'class': 'review'})
-	return html_page('Reviews', *map(review_to_html, db.iterate('open_reviews')))
+	return html_page('Reviews', *map(review_to_html_summary, db.iterate('open_reviews')))
+
+def review_to_diff(review):
+	base = repo.commit(review['baseCommit'])
+	last = repo.commit(review['lastCommit'])
+	affectedPaths = set(review['affectedPaths'])
+	diff = base.diff(last, None, True)
+	return filter(lambda d: not diff_to_affected_paths(d).isdisjoint(affectedPaths), diff)
+
+def get_patch(request, args):
+	[hexsha] = args
+	review = db.get('open_reviews', hexsha)
+	diff = review_to_diff(review)
+	return http.Text(''.join(map(lambda d: str(d), diff)))
 
 def get_review(request, args):
 	[hexsha] = args
 	review = db.get('open_reviews', hexsha)
-	base = repo.commit(review['baseCommit'])
-	last = repo.commit(review['lastCommit'])
-	affectedPaths = set(review['affectedPaths'])
 	
-	diff = base.diff(last, None, True)
-	filtered_diff = filter(lambda d: not diff_to_affected_paths(d).isdisjoint(affectedPaths), diff)
-	return html_page('Review {}'.format(hexsha[0:12]), *map(diff_to_html, filtered_diff))
+	patch = html.a('patch', href=html.absolute('patch', hexsha))
+	buttons = html.div(patch)
+	header = html.div(review_to_html_summary((hexsha, review)), html.hr(), buttons)
+
+	diff = review_to_diff(review)
+	return html_page('Review {}'.format(hexsha[0:12]), header, *map(diff_to_html, diff))
 
 def post_review_create(request, args, form):
 	commits = map(lambda x: repo.commit(x.name), form.list)
@@ -148,7 +159,7 @@ def post_review_create(request, args, form):
 		'affectedPaths': list(paths),
 		'includedCommits': list(map(lambda c: c.hexsha, included)),
 	}
-	return html.absolute('review', db.add('open_reviews', review))
+	return http.Created(html.absolute('review', db.add('open_reviews', review)))
 
 def bytes_to_human(n):
 	return str(n)+' B'
@@ -178,11 +189,11 @@ def get_tree(request, args):
 
 def get_comment(request, args):
 	[hexsha] = args
-	return html.text(db.get('comments', hexsha)['message'].encode('utf-8'))
+	return http.Text(db.get('comments', hexsha)['message'].encode('utf-8'))
 
 def post_comment_create(request, args, form):
 	print args, form
-	return html.absolute('comment', db.add('comments', {'message': form['message'].value}))
+	return http.Created(html.absolute('comment', db.add('comments', {'message': form['message'].value})))
 
 if __name__ == '__main__':
 	http.serve(('localhost', 8080), http.Handler(get_reviews, None,
@@ -197,5 +208,6 @@ if __name__ == '__main__':
 		),
 		tree = http.Handler(get_tree, None),
 		refs = http.Handler(get_refs, None),
+		patch = http.Handler(get_patch, None),
 	))
 

@@ -6,6 +6,32 @@ import urlparse
 import cgi
 import json
 
+class Html:
+	def __init__(self, html):
+		self.html = html
+	def serve(self, response):
+		response.send_response(200)
+		response.send_header('Content-Type', 'text/html; charset=UTF-8');
+		response.end_headers()
+		response.wfile.write(self.html.to_string())
+
+class Text:
+	def __init__(self, text):
+		self.text = text
+	def serve(self, response):
+		response.send_response(200)
+		response.send_header('Content-Type', 'text/plain; charset=UTF-8');
+		response.end_headers()
+		response.wfile.write(self.text)
+
+class Created:
+	def __init__(self, location):
+		self.location = location
+	def serve(self, response):
+		response.send_response(302)
+		response.send_header('Location', self.location);
+		response.end_headers()
+
 class Handler:
 	def __init__(self, do_GET, do_POST, **children):
 		self.do_GET = do_GET
@@ -21,15 +47,7 @@ def serve(address, root_handler):
 	class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 		def get_path(self):
 			return self.path.split('/')[1:]
-		def serve_html(self, content):
-			self.send_response(200)
-			self.send_header('Content-Type', 'text/html; charset=UTF-8');
-			self.end_headers()
-			self.wfile.write(content.to_string())
-		def serve_found(self, new_location):
-			self.send_response(302, 'created')
-			self.send_header('Location', new_location);
-			self.end_headers()
+
 		def serve_not_found(self):
 			self.send_error(404, 'invalid path: {}'.format(self.path))
 		def serve_invalid_method(self, method):
@@ -38,7 +56,7 @@ def serve(address, root_handler):
 			(handler, args) = root_handler.find(self.get_path())
 			if handler:
 				if handler.do_GET:
-					self.serve_html(handler.do_GET(self, args))
+					handler.do_GET(self, args).serve(self)
 				else:
 					self.serve_invalid_method('GET')
 			else:
@@ -56,7 +74,7 @@ def serve(address, root_handler):
 						)
 					else:
 						raise Exception("Unsupported content type: "+content_type)
-					self.serve_found(handler.do_POST(self, args, form))
+					handler.do_POST(self, args, form).serve(self)
 				else:
 					self.serve_invalid_method('POST')
 			else:
