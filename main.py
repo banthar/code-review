@@ -9,16 +9,27 @@ import collections
 import itertools
 import filedb
 import http
-import static
+import json
 
-repo = git.Repo('/home/piotr/projekty/linux.git')
-db = filedb.FileDb('objects')
+def read_file(filename):
+	with open(filename,'rb') as f:
+		return f.read()
+
+def read_json(filename):
+	with open(filename,'rb') as f:
+		return json.load(f)
+
+config = read_json('config.json')
+repo = git.Repo(config['repo'])
+db = filedb.FileDb(config['storage_path'])
+style = read_file('style.css')
+script = read_file('script.js')
 
 def html_page(title, *content):
 	head = html.head(
-		html.link(rel="shortcut icon", href=static.favicon),
-		html.title("{} - {}".format(title, static.title)),
-		html.style(static.style),
+		html.link(rel="shortcut icon", href=config['favicon']),
+		html.title("{} - {}".format(title, config['title'])),
+		html.style(style),
 	)
 	nav = html.nav(html.ul(
 		html.li(html.a('⚗', href=html.absolute())),
@@ -27,7 +38,7 @@ def html_page(title, *content):
 		html.li(html.a('Tree', href=html.absolute('tree', repo.head.ref.name))),
 		html.li(html.a('Refs', href=html.absolute('refs'))),
 	))
-	return http.Html(html.html(head, html.body(*((nav,)+content+(html.script(static.script),)))))
+	return http.Html(html.html(head, html.body(*((nav,)+content+(html.script(script),)))))
 
 def get_refs(request, args):
 	def get_ref(ref):
@@ -69,9 +80,9 @@ def commit_to_html(commit):
 def get_commits(request, args):
 	ref_name = '/'.join(args)
 	rows = []
-	for commit in repo.iter_commits(ref_name, max_count=256):
+	for commit in repo.iter_commits(ref_name, max_count=config['displayed_commits']):
 		check = html.input(type="checkbox", name=commit.hexsha)
-		rows.append(html.tr(html.td(check), html.td(*commit_to_html(commit))))
+		rows.append(html.tr(html.td(check, ' ', *commit_to_html(commit))))
 	create_review = html.input(value='Create Review', type='submit')
 	reset = html.input(value='Reset', type='reset')
 	body = html.form(create_review, reset, html.hr(), html.table(*rows, **{'class': 'list'}), method='post', action=html.absolute('review', 'create'))
@@ -175,15 +186,16 @@ def get_tree(request, args):
 	if isinstance(tree, git.Blob):
 		body = html.pre(tree.data_stream.read())
 	else:
+		rows.append(html.tr(html.th('Name'), html.th('Size'), html.th('Type')))
 		if len(args)>1:
-			rows.append(html.tr(html.td(html.a('..', href='/'+'/'.join(['tree']+args[:1]))), html.td()))
+			rows.append(html.tr(html.td(html.a('..', href='/'+'/'.join(['tree']+args[:1]))), html.td(), html.td('[DIR]')))
 		for d in tree.trees:
 			link = html.td(html.a(d.name+'/', href='/'+'/'.join(['tree']+args+[d.name])))
-			rows.append(html.tr(link, html.td()))
+			rows.append(html.tr(link, html.td(), html.td('[DIR]')))
 		for blob in tree.blobs:
 			link = html.td(html.a(blob.name, href='/'+'/'.join(['tree']+args+[blob.name])))
 			size = html.td(bytes_to_human(blob.size))
-			rows.append(html.tr(link, size))
+			rows.append(html.tr(link, size, html.td(blob.mime_type)))
 		body = html.table(*rows, **{'class': 'list'})
 	return html_page('Tree {} /{}'.format(ref_name, '/'.join(path)), html.div(body))
 
