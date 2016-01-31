@@ -21,7 +21,7 @@ def html_page(title, *content):
 		html.style(static.style),
 	)
 	nav = html.nav(html.ul(
-		html.li(html.a('⏏', href=html.absolute())),
+		html.li(html.a('⚗', href=html.absolute())),
 		html.li(html.a('Reviews', href=html.absolute('reviews'))),
 		html.li(html.a('Commits', href=html.absolute('commits', repo.head.ref.name))),
 		html.li(html.a('Tree', href=html.absolute('tree', repo.head.ref.name))),

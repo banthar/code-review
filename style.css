@@ -36,6 +36,8 @@ body > div {
 	margin: 1.0em;
 	font-family: monospace;
 	box-shadow: 2px 2px 10px #888888;
+	overflow: auto;
+	min-width: 800px;
 }
 
 table {
@@ -73,8 +75,6 @@ hr {
 }
 
 .diff {
-	margin: 0px;
-	padding: 0px;
   white-space: pre;
 }
 
