@@ -20,20 +20,22 @@ class TextNode:
 
 class HTMLNode:
 	def __init__(self, kind, children, attributes):
-		def create_node(node):
-			if isinstance(node, str):
-				return TextNode(node)
-			if isinstance(node, unicode):
-				return TextNode(node.encode('utf-8'))
-			else:
-				return node
-
-		def create_nodes(nodes):
-			return map(create_node, nodes)
+		def add_children(nodes):
+			for node in nodes:
+				if isinstance(node, str):
+					self.children.append(TextNode(node))
+				elif isinstance(node, unicode):
+					self.children.append(TextNode(node.encode('utf-8')))
+				elif isinstance(node, tuple) or isinstance(node, list):
+					add_children(node)
+				else:
+					self.children.append(node)
 
 		self.kind = kind
-		self.children = create_nodes(children)
+		self.children = []
 		self.attributes = attributes
+		add_children(children)
+
 	def to_string(self):
 		attributeText = ''
 		for name, value in self.attributes.iteritems():
@@ -70,6 +72,9 @@ def pre(*args, **attributes):
 
 def p(*args, **attributes):
 	return HTMLNode('p', args, attributes)
+
+def span(*args, **attributes):
+	return HTMLNode('span', args, attributes)
 
 def div(*args, **attributes):
 	return HTMLNode('div', args, attributes)

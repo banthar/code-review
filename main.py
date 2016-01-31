@@ -49,20 +49,41 @@ def get_refs(request, args):
 	return html_page('Refs', html.div(html.table(*map(get_ref, repo.refs), **{'class': 'list'})))
 
 def diff_to_html(diff):
-	def diff_lin_to_html(line):
+	def parse_segment_header(header):
+		m = re.match('^@@ -(\d+),(\d+) \+(\d+),(\d+) @@', header)
+		return (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
+	def line_to_html(left, right, content, classes):
+		left_td = html.td() if left == 0 else html.td(str(left), **{'class': 'h'})
+		right_td = html.td() if right == 0 else html.td(str(right), **{'class': 'h'})
+		return html.tr(left_td, right_td, html.td(content), **{'class': classes})
+	def italize_control_char(line):
+		return (html.span(line[0], **{'class': 'h'}), line[1:])
+	rows = []
+	lines = diff.diff.split('\n')
+	moved_from = lines.pop(0)
+	rows.append(line_to_html(0, 0, moved_from, 'h r'))
+	moved_to = lines.pop(0)
+	rows.append(line_to_html(0, 0, moved_to, 'h a'))
+	for line in lines:
 		if len(line) == 0:
-			type = ''
+			continue
 		elif line[0] == '+':
-			type = 'commentable added'
+			rows.append(line_to_html(0, right_line, italize_control_char(line), 'c a'))
+			right_line+=1
 		elif line[0] == '-':
-			type = 'commentable removed'
+			rows.append(line_to_html(left_line, 0, italize_control_char(line), 'c r'))
+			left_line+=1
 		elif line[0] == '@':
-			type = 'header'
+			(left_line,_,right_line,_) = parse_segment_header(line)
+			rows.append(line_to_html(0, 0, line, 'h'))
+			continue
+		elif line[0] == ' ':
+			rows.append(line_to_html(left_line, right_line, line, 'c'))
+			right_line+=1
+			left_line+=1
 		else:
-			type = 'commentable'
-		return html.tr(html.td(), html.td(line), **{'class': type})
-	lines = map(diff_lin_to_html , diff.diff.split('\n'))
-	return html.div(html.table(*lines, **{'class': 'diff'}))
+			raise Exception()
+	return html.div(html.table(*rows, **{'class': 'diff'}))
 
 def get_commit(request, args):
 	[commit_id] = args

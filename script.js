@@ -25,7 +25,7 @@ function post(url, data, onload, onerror) {
 	request.send(encoded);
 }
 
-const commentable = document.getElementsByClassName('commentable')
+const commentable = document.getElementsByClassName('c')
 for(var i=0; i<commentable.length;i++) {
 	function createForm(mainElement) {
 		const form = document.createElement("form");

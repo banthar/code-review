@@ -92,19 +92,20 @@ hr {
   white-space: pre;
 }
 
-.diff .added {
+.diff .a {
 	background-color: #cfd;
 }
 
-.diff .removed {
+.diff .r {
 	background-color: #fdc;
 }
 
-.diff .header {
-	font-weight: bold;
+.diff .h {
+	font-style: italic;
+	color: #a0a0a0;
 }
 
-.commentable:hover {
+.c:hover {
 	background-color: #cdf;
 }
 
