@@ -155,7 +155,7 @@ def review_to_diff(review):
 	base = repo.commit(review['baseCommit'])
 	last = repo.commit(review['lastCommit'])
 	affectedPaths = set(review['affectedPaths'])
-	diff = base.diff(last, None, True)
+	diff = base.diff(last, None, True, U=config['diff_context'], w=config['diff_ignore_whitespace'])
 	return filter(lambda d: not diff_to_affected_paths(d).isdisjoint(affectedPaths), diff)
 
 def get_patch(request, args):

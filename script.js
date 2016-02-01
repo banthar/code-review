@@ -44,6 +44,10 @@ function addComments(comments) {
 	for(const c of comments){
 		if(!document.getElementById(c.id)) {
 			const line = document.getElementById(c.left_id) || document.getElementById(c.right_id)
+			if(!line) {
+				console.error("missing source for: "+JSON.stringify(c));
+				continue;
+			}
 			const target = line.parentElement.children[2]
 			const comment = document.createElement('div');
 			comment.id = c.id;
@@ -109,7 +113,6 @@ function initComments(review_id) {
 	for(var i=0; i<commentable.length;i++) {
 		commentable[i].addEventListener("click", onCommentClick);
 	}
-	console.log('/comments/' + review_id);
 	get('/comments/' + review_id, addComments, null);
 }
 
