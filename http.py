@@ -24,12 +24,29 @@ class Text:
 		response.end_headers()
 		response.wfile.write(self.text)
 
+class Json:
+	def __init__(self, data):
+		self.data = data
+	def serve(self, response):
+		response.send_response(200)
+		response.send_header('Content-Type', 'application/json');
+		response.end_headers()
+		json.dump(self.data, response.wfile)
+
 class Created:
 	def __init__(self, location):
 		self.location = location
 	def serve(self, response):
 		response.send_response(302)
 		response.send_header('Location', self.location);
+		response.end_headers()
+
+class Error:
+	def __init__(self, code, status):
+		self.code = code
+		self.status = status
+	def serve(self, response):
+		response.send_response(self.code, self.status)
 		response.end_headers()
 
 class Handler:

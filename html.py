@@ -39,7 +39,7 @@ class HTMLNode:
 	def to_string(self):
 		attributeText = ''
 		for name, value in self.attributes.iteritems():
-			attributeText += ' {}=\'{}\''.format(htmlescape(name), htmlescape(value))
+			attributeText += ' {}="{}"'.format(htmlescape(name), htmlescape(value))
 		if self.children:
 			return '<'+self.kind+attributeText+'>'+''.join(map(lambda x: x.to_string(), self.children))+'</'+self.kind+'>'
 		else:

@@ -25,7 +25,7 @@ db = filedb.FileDb(config['storage_path'])
 style = read_file('style.css')
 script = read_file('script.js')
 
-def html_page(title, *content):
+def html_page(title, *content, **arguments):
 	head = html.head(
 		html.link(rel="shortcut icon", href=config['favicon']),
 		html.title("{} - {}".format(title, config['title'])),
@@ -38,7 +38,7 @@ def html_page(title, *content):
 		html.li(html.a('Tree', href=html.absolute('tree', repo.head.ref.name))),
 		html.li(html.a('Refs', href=html.absolute('refs'))),
 	))
-	return http.Html(html.html(head, html.body(*((nav,)+content+(html.script(script),)))))
+	return http.Html(html.html(head, html.body(*((nav,)+content+(html.script(script),)),**arguments)))
 
 def get_refs(request, args):
 	def get_ref(ref):
@@ -53,8 +53,8 @@ def diff_to_html(diff):
 		m = re.match('^@@ -(\d+),(\d+) \+(\d+),(\d+) @@', header)
 		return (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
 	def line_to_html(left, right, content, classes):
-		left_td = html.td() if left == 0 else html.td(str(left), **{'class': 'h'})
-		right_td = html.td() if right == 0 else html.td(str(right), **{'class': 'h'})
+		left_td = html.td() if left == 0 else html.td(str(left), **{'class': 'h', 'id': '{}L{}'.format(diff.a_blob, left)})
+		right_td = html.td() if right == 0 else html.td(str(right), **{'class': 'h', 'id': '{}R{}'.format(diff.b_blob, right)})
 		return html.tr(left_td, right_td, html.td(content), **{'class': classes})
 	def italize_control_char(line):
 		return (html.span(line[0], **{'class': 'h'}), line[1:])
@@ -167,13 +167,11 @@ def get_patch(request, args):
 def get_review(request, args):
 	[hexsha] = args
 	review = db.get('open_reviews', hexsha)
-	
 	patch = html.a('patch', href=html.absolute('patch', hexsha))
 	buttons = html.div(patch)
 	header = html.div(review_to_html_summary((hexsha, review)), html.hr(), buttons)
-
 	diff = review_to_diff(review)
-	return html_page('Review {}'.format(hexsha[0:12]), header, *map(diff_to_html, diff))
+	return html_page('Review {}'.format(hexsha[0:12]), header, *map(diff_to_html, diff), onload='initComments(\'{}\');'.format(hexsha))
 
 def post_review_create(request, args, form):
 	commits = map(lambda x: repo.commit(x.name), form.list)
@@ -220,13 +218,26 @@ def get_tree(request, args):
 		body = html.table(*rows, **{'class': 'list'})
 	return html_page('Tree {} /{}'.format(ref_name, '/'.join(path)), html.div(body))
 
-def get_comment(request, args):
-	[hexsha] = args
-	return http.Text(db.get('comments', hexsha)['message'].encode('utf-8'))
+def get_comments(request, args):
+	[review_id] = args
+	comments = []
+	for id, m in db.iterate('comments_'+review_id):
+		m['id'] = id
+		comments.append(m)
+	return http.Json(comments)
 
 def post_comment_create(request, args, form):
-	print args, form
-	return http.Created(html.absolute('comment', db.add('comments', {'message': form['message'].value})))
+	review_id = form['review_id'].value
+	left_id = form['left_id'].value if form.has_key('left_id') else None
+	right_id = form['right_id'].value if form.has_key('right_id') else None
+	if not form.has_key('message'):
+		return http.Error(400, 'Missing comment message')
+	db.add('comments_' + review_id, {
+		'message': form['message'].value,
+		'left_id': left_id,
+		'right_id': right_id
+	})
+	return http.Created(html.absolute('comments', review_id))
 
 if __name__ == '__main__':
 	http.serve(('localhost', 8080), http.Handler(get_reviews, None,
@@ -236,9 +247,10 @@ if __name__ == '__main__':
 		reviews = http.Handler(get_reviews, None), 
 		commit = http.Handler(get_commit, None),
 		commits = http.Handler(get_commits, None),
-		comment = http.Handler(get_comment, None,
+		comment = http.Handler(None, None,
 			create= http.Handler(None, post_comment_create),
 		),
+		comments = http.Handler(get_comments, None),
 		tree = http.Handler(get_tree, None),
 		refs = http.Handler(get_refs, None),
 		patch = http.Handler(get_patch, None),
